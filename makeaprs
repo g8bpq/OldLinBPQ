@@ -1,0 +1,1 @@
+ gcc -g  -o XAprs /mnt/pc/CommonSource/XAprs.c -ljpeg -l X11 -lm -lrt /usr/lib/libconfig.a  `pkg-config gtk+-2.0 --cflags --libs`
