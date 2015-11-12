@@ -1,0 +1,23 @@
+<!-- Version 2 18/10/2015 -->
+<!DOCTYPE html> 
+<html> 
+<head> 
+<meta http-equiv="content-type" content="text/html; charset=UTF-8"/> 
+<style type="text/css">
+pre {margin-left: 4px;margin-right: 4px;white-space: pre-wrap} 
+#main{width:700px;position:absolute;left:0px;border:2px solid;background-color: #ffffff;}
+</style>
+<script src="webscript.js"></script>
+<title>WebMail</title> 
+</head>
+<body background=/background.jpg onload="initialize()" onresize="initialize()">
+<h3 align=center> %s Webmail Interface - User %s - Message %d</h3>
+<table align=center border=1 cellpadding=2 bgcolor=white><tr>
+<td><a href="#" onclick="Reply('%d' ,'%s'); return false;">Reply</a></td>
+<td><a href=/WebMail/WMDel/%d?%s>Kill Message</a></td>
+<td><a href=/WebMail/WMSame?%s>Back to List</a></td>
+</tr></table>
+<br>
+<div id="main">
+<pre>%s</pre>
+</div> 
