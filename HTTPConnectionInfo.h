@@ -33,5 +33,6 @@ struct HTTPConnectionInfo		// Used for Web Server for thread-specific stuff
 	struct UserRec * USER;		// Telnet Server USER record
 	int WebMailSkip;			// Number to skip at start of list (for paging)
 	char WebMailTypes[4];		// Types To List
+	BOOL WebMailMine;			// List all meessage to or from me
 	time_t WebMailLastUsed;
 };

@@ -480,10 +480,20 @@ int SendWebMailHeader(char * Reply, char * Key, struct HTTPConnectionInfo * Sess
 		
 		if (Msg && CheckUserMsg(Msg, User->Call, User->flags & F_SYSOP))
 		{
-			// List if it is the right type andin the page range we want
+			// List if it is the right type and in the page range we want
 
 			if (Session->WebMailTypes[0] && strchr(Session->WebMailTypes, Msg->type) == 0) 
 				continue;
+
+			// All Types or right Type. Check Mine Flag
+
+			if (Session->WebMailMine)
+			{
+				// Only list if to or from me
+
+				if (strcmp(User->Call, Msg->to) != 0 && strcmp(User->Call, Msg->from) != 0)
+					continue;
+			}
 
 			if (Count++ < Session->WebMailSkip)
 				continue;
@@ -505,9 +515,9 @@ int SendWebMailHeader(char * Reply, char * Key, struct HTTPConnectionInfo * Sess
 	}
 
 	if (WebMailTemplate == NULL)
-		WebMailTemplate = GetTemplateFromFile(4, "WebMailPage.txt");
+		WebMailTemplate = GetTemplateFromFile(5, "WebMailPage.txt");
 
-	return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Key, Key, Key, Key, Messages);
+	return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Key, Key, Key, Key, Key, Messages);
 }
 
 int SendWebMailMessage(char * Reply, char * Key, struct UserInfo * User, int Number)
@@ -524,13 +534,13 @@ int SendWebMailMessage(char * Reply, char * Key, struct UserInfo * User, int Num
 	if (Msg == NULL)
 	{
 		ptr += sprintf(ptr, "Message %d not found\r\n", Number);
-		return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Message);
+		return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Key, Key, Key, Key, Key, Message);
 	}
 
 	if (!CheckUserMsg(Msg, User->Call, User->flags & F_SYSOP))
 	{
 		ptr += sprintf(ptr, "Message %d not for you\r", Number);
-		return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Message);
+		return sprintf(Reply, WebMailTemplate, BBSName, User->Call, Key, Key, Key, Key, Key, Key, Key, Key, Key, Key, Message);
 	}
 
 	if (_stricmp(Msg->to, "RMS") == 0)
@@ -1052,6 +1062,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 
 						Session->WebMailLastUsed = time(NULL);
 						Session->WebMailSkip = 0;
+						Session->WebMailMine = FALSE;
 
 						if (WebMailTemplate)
 						{
@@ -1382,6 +1393,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 		}
 
 		Session->WebMailSkip = 0;
+		Session->WebMailMine = FALSE;
 
 		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
  		return;
@@ -1391,6 +1403,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 	{
 		Session->WebMailSkip = 0;
 		Session->WebMailTypes[0] = 0;
+		Session->WebMailMine = FALSE;
 
 		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
  		return;
@@ -1400,6 +1413,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 	{
 		Session->WebMailSkip = 0;
 		strcpy(Session->WebMailTypes, "B");
+		Session->WebMailMine = FALSE;
 
 		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
  		return;
@@ -1409,6 +1423,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 	{
 		Session->WebMailSkip = 0;
 		strcpy(Session->WebMailTypes, "P");
+		Session->WebMailMine = FALSE;
 
 		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
  		return;
@@ -1418,10 +1433,22 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 	{
 		Session->WebMailSkip = 0;
 		strcpy(Session->WebMailTypes, "T");
+		Session->WebMailMine = FALSE;
 
 		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
  		return;
 	}
+
+	if (_stricmp(NodeURL, "/WebMail/WMMine") == 0)
+	{
+		Session->WebMailSkip = 0;
+		Session->WebMailTypes[0] = 0;
+		Session->WebMailMine = TRUE;
+		
+		*RLen = SendWebMailHeader(Reply, Session->Key, Session);
+ 		return;
+	}
+
 
 	if (_stricmp(NodeURL, "/WebMail/WMSame") == 0)
 	{

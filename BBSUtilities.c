@@ -2010,9 +2010,13 @@ int ImportMessages(CIRCUIT * conn, char * FN, BOOL Nopopup)
 
 	if (conn == 0)
 	{
+		struct UserInfo User;	
+		memset(&User, 0, sizeof(struct UserInfo));
+	
 		conn = &dummyconn;
 
-		dummyconn.UserPointer = LookupCall(SYSOPCall);
+		dummyconn.UserPointer = &User;	// Was SYSOPCall, but I think that is wrong.
+		strcpy(User.Call, "IMPORT");
 		dummyconn.sysop = TRUE;
 		dummyconn.BBSFlags = BBS;
 		strcpy(dummyconn.Callsign, "IMPORT");

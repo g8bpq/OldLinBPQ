@@ -3663,10 +3663,10 @@ int OpenPCAP()
 		adhandle = 0;
 		return FALSE;
 	}
-	
+#endif	
 	return TRUE;
 }
-#endif
+
 
 VOID ReadARP()
 {

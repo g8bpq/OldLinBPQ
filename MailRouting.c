@@ -765,7 +765,6 @@ VOID CheckAndSend(struct MsgInfo * Msg, CIRCUIT * conn, struct UserInfo * bbs)
 			ForwardingInfo->MsgCount++;
 			if (ForwardingInfo->SendNew)
 				ForwardingInfo->FwdTimer = ForwardingInfo->FwdInterval;
-
 		}
 	}
 }
