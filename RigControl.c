@@ -227,6 +227,9 @@ VOID Rig_PTT(struct RIGINFO * RIG, BOOL PTTState)
 
 			RigWriteCommBlock(PORT);
 
+			if (PORT->PortType == ICOM && !PTTState)
+				RigWriteCommBlock(PORT); // Send ICOP PTT OFF Twice
+
 			PORT->Retries = 1;
 			
 			if (PORT->PortType != ICOM)

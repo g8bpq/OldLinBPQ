@@ -1716,7 +1716,7 @@ VOID UNPROTOCMD(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX
 	Session->UAddrLen = strlen(axcalls);
 	memcpy(Session->UADDRESS, axcalls, 63);
 
-	Bufferptr += sprintf(Bufferptr, "Unproto Mode - enter ctrl/z to exit\r");
+	Bufferptr += sprintf(Bufferptr, "Unproto Mode - enter ctrl/z or /ex to exit\r");
 	SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
 	return;
 }
@@ -4047,9 +4047,9 @@ VOID InnerCommandHandler(TRANSPORTENTRY * Session, struct DATAMESSAGE * Buffer)
 		int Port = Session->UNPROTO;
 		int Len = Buffer->LENGTH - 6;		// CTL, PID and Data
 
-		//	First check for UNPROTO exit - ctrl/z
+		//	First check for UNPROTO exit - ctrl/z or /ex
 
-		if (Buffer->L2DATA[0] == 26)		// CTRL/Z
+		if (Buffer->L2DATA[0] == 26 || (Len == 6 && _memicmp(&Buffer->L2DATA[0], "/ex", 3) == 0))		// CTRL/Z or /ex
 		{
 			REPLYBUFFER = Buffer;
 	

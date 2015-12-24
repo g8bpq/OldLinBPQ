@@ -521,7 +521,7 @@ ok:
 
 		if (Stream == 0)
 		{
-			if (STREAM->FramesOutstanding  > 4)
+			if (STREAM->FramesOutstanding  > 10)
 				return (1 | TNC->HostMode << 8 | STREAM->Disconnecting << 15);
 		}
 		else

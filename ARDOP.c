@@ -412,13 +412,12 @@ VOID ARDOPSendCommand(struct TNCINFO * TNC, char * Buff, BOOL Queue)
 		if (TNC->BPQtoWINMOR_Q)
 		{
 			// Something already queued
-		
 			C_Q_ADD(&TNC->BPQtoWINMOR_Q, buffptr);
 			return;
 		}
 
 		// Nothing on Queue, so OK to send now
-
+	
 		C_Q_ADD(&TNC->BPQtoWINMOR_Q, buffptr);
 		SendToTNC(TNC, Encoded, EncLen);
 		return;
@@ -1071,16 +1070,43 @@ static int ExtProc(int fn, int port,unsigned char * buff)
 					return 0;
 				}
 			}
-			if ((_memicmp(&buff[8], "BW 500", 6) == 0) || (_memicmp(&buff[8], "BW 1600", 7) == 0))
+			if (_memicmp(&buff[8], "ARQBW ", 6) == 0)
 			{
-				// Generate a local response
+				UCHAR * bwptr = &buff[14];
+				strlop(bwptr, 13);
 				
-				UINT * buffptr = GetBuff();
-
-				if (buffptr)
+				if (_stricmp(bwptr, "200FORCED") == 0 ||
+					_stricmp(bwptr, "500FORCED") == 0 ||
+					_stricmp(bwptr, "1000FORCED") == 0 ||
+					_stricmp(bwptr, "2000FORCED") == 0 ||
+					_stricmp(bwptr, "200MAX") == 0 ||
+					_stricmp(bwptr, "500MAX") == 0 ||
+					_stricmp(bwptr, "1000MAX") == 0 ||
+					_stricmp(bwptr, "2000MAX") == 0)
 				{
-					buffptr[1] = sprintf((UCHAR *)&buffptr[2], "ARDOP} OK\r");
-					C_Q_ADD(&TNC->WINMORtoBPQ_Q, buffptr);
+
+					// ARDOP doesn't respond to valid ocmmands so reply ok snd pass on
+
+					UINT * buffptr = GetBuff();
+
+					if (buffptr)
+					{
+						buffptr[1] = sprintf((UCHAR *)&buffptr[2], "ARDOP} Ok\r");
+						C_Q_ADD(&TNC->WINMORtoBPQ_Q, buffptr);
+					}
+				}
+				else
+				{
+					// reject
+				
+					UINT * buffptr = GetBuff();
+
+					if (buffptr)
+					{
+						buffptr[1] = sprintf((UCHAR *)&buffptr[2], "ARDOP} Invalid ARQBW\r");
+						C_Q_ADD(&TNC->WINMORtoBPQ_Q, buffptr);
+					}
+					return 0;
 				}
 				TNC->WinmorCurrentMode = 0;			// So scanner will set next value
 			}
@@ -1704,6 +1730,7 @@ VOID ARDOPThread(port)
  	TNC->CONNECTING = FALSE;
 	TNC->CONNECTED = TRUE;
 	TNC->BusyFlags = 0;
+	TNC->InputLen = 0;
 
 	// Send INIT script
 
@@ -1748,7 +1775,10 @@ VOID ARDOPThread(port)
 
 	FreeSemaphore(&Semaphore);
 
-	while (TRUE)
+	sprintf(Msg, "Connected to ARDOP TNC Port %d\r\n", TNC->Port);
+	WritetoConsole(Msg);
+
+	while (TNC->CONNECTED)
 	{
 		FD_ZERO(&readfs);	
 		FD_ZERO(&errorfs);
@@ -1756,7 +1786,7 @@ VOID ARDOPThread(port)
 		FD_SET(TNC->WINMORSock,&readfs);
 		FD_SET(TNC->WINMORSock,&errorfs);
 
-		timeout.tv_sec = 90;
+		timeout.tv_sec = 60;
 		timeout.tv_usec = 0;				// We should get messages more frequently that this
 
 		ret = select(TNC->WINMORSock + 1, &readfs, NULL, &errorfs, &timeout);
@@ -1824,8 +1854,10 @@ Lost:
 			if (TNC->Streams[0].Attached)
 				TNC->Streams[0].ReportDISC = TRUE;
 
+			GetSemaphore(&Semaphore, 52);
 			ARDOPSendCommand(TNC, "CODEC FALSE", FALSE);
-	
+			FreeSemaphore(&Semaphore);
+
 			Sleep(100);
 			shutdown(TNC->WINMORSock, SD_BOTH);
 			Sleep(100);
@@ -1839,6 +1871,8 @@ Lost:
 			return;
 		}
 	}
+	sprintf(Msg, "ARDOP Thread Terminated Port %d\r\n", TNC->Port);
+	WritetoConsole(Msg);
 }
 
 #ifndef LINBPQ
@@ -2018,6 +2052,7 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 		Debugprintf(Buffer);
 		WritetoTrace(TNC, Buffer, MsgLen - 5);
 		memcpy(TNC->TargetCall, &Buffer[7], 10);
+		ARDOPSendCommand(TNC, "RDY", FALSE);
 		return;
 	}
 
@@ -2030,9 +2065,9 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 
 	if (_memicmp(Buffer, "BUFFER", 6) == 0)
 	{
-		int inq, inrx, Sent, BPM;
+		Debugprintf(Buffer);
 
-		sscanf(&Buffer[7], "%d%d%d%d%d", &inq, &inrx, &TNC->Streams[0].BytesOutstanding, &Sent, &BPM);
+		sscanf(&Buffer[7], "%d", &TNC->Streams[0].BytesOutstanding);
 
 		if (TNC->Streams[0].BytesOutstanding == 0)
 		{
@@ -2319,6 +2354,12 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 
 	Debugprintf(Buffer);
 
+	if (_memicmp(Buffer, "STATUS ", 7) == 0)
+	{
+		ARDOPSendCommand(TNC, "RDY", FALSE);
+		return;
+	}
+
 	if (_memicmp(Buffer, "RADIOMODELS", 11) == 0)
 		return;
 
@@ -2488,7 +2529,7 @@ static VOID ARDOPProcessReceivedData(struct TNCINFO * TNC)
 {
 	int InputLen, MsgLen;
 	char * ptr, * ptr2;
-	char Buffer[2000];
+	char Buffer[4096];
 
 	// shouldn't get several messages per packet, as each should need an ack
 	// May get message split over packets
@@ -2501,7 +2542,7 @@ static VOID ARDOPProcessReceivedData(struct TNCINFO * TNC)
 
 	//	As far as I can see, shortest frame is “c:RDY<Cr> + 2 byte CRC” = 8 bytes
 
-	if (TNC->InputLen > 1000)	// Shouldnt have packets longer than this
+	if (TNC->InputLen > 8000)	// Shouldnt have packets longer than this
 		TNC->InputLen=0;
 
 	//	I don't think it likely we will get packets this long, but be aware...
