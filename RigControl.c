@@ -636,12 +636,18 @@ portok:
 			*(CmdPtr++) = (FreqString[6] - 48) | ((FreqString[5] - 48) << 4);
 			*(CmdPtr++) = (FreqString[4] - 48) | ((FreqString[3] - 48) << 4);
 			*(CmdPtr++) = (FreqString[2] - 48) | ((FreqString[1] - 48) << 4);
-			*(CmdPtr++) = (FreqString[0] - 48);
-
-			*(CmdPtr++) = 0xFD;
-
-			FreqPtr[0].Cmd1Len = 11;
-
+			if (RIG->IC735)
+			{
+				*(CmdPtr++) = 0xFD;
+				FreqPtr[0].Cmd1Len = 10;
+			}
+			else
+			{
+				*(CmdPtr++) = (FreqString[0] - 48);
+				*(CmdPtr++) = 0xFD;
+				FreqPtr[0].Cmd1Len = 11;
+			}
+	
 			// Send Set VFO in case last chan was memory
 							
 	//		*(CmdPtr++) = 0xFE;
@@ -2227,8 +2233,12 @@ SetFinished:
 	{
 		// Rig Frequency
 		int n, j, Freq = 0, decdigit;
+		int start = 9;
+	
+		if (RIG->IC735)
+			start = 8;		// shorted msg
 
-		for (j = 9; j > 4; j--)
+		for (j = start; j > 4; j--)
 		{
 			n = Msg[j];
 			decdigit = (n >> 4);
@@ -2271,7 +2281,11 @@ SetFinished:
 
 		if (Mode > 17) Mode = 17;
 
-		sprintf(RIG->WEB_MODE,"%s/%d", Modes[Mode], Msg[6]);
+		if (RIG->IC735)
+			sprintf(RIG->WEB_MODE,"%s", Modes[Mode]);
+		else
+			sprintf(RIG->WEB_MODE,"%s/%d", Modes[Mode], Msg[6]);
+
 		SetWindowText(RIG->hMODE, RIG->WEB_MODE);
 	}
 }
@@ -3519,6 +3533,11 @@ PortFound:
 	
 	strcpy(RIG->RigName, RigName);
 
+	// IC735 uses shorter freq message
+
+	if (strcmp(RigName, "IC735") == 0 && PORT->PortType == ICOM)
+		RIG->IC735 = TRUE;
+
 	RIG->PortNum = Port;
 	RIG->BPQPort |=  (1 << Port);
 
@@ -4165,12 +4184,18 @@ CheckScan:
 				*(CmdPtr++) = (FreqString[6] - 48) | ((FreqString[5] - 48) << 4);
 				*(CmdPtr++) = (FreqString[4] - 48) | ((FreqString[3] - 48) << 4);
 				*(CmdPtr++) = (FreqString[2] - 48) | ((FreqString[1] - 48) << 4);
-				*(CmdPtr++) = (FreqString[0] - 48);
+				if (RIG->IC735)
+				{
+					*(CmdPtr++) = 0xFD;
+					FreqPtr[0]->Cmd1Len = 10;
+				}
+				else
+				{
+					*(CmdPtr++) = (FreqString[0] - 48);
+					*(CmdPtr++) = 0xFD;
+					FreqPtr[0]->Cmd1Len = 11;
+				}
 
-				*(CmdPtr++) = 0xFD;
-
-				FreqPtr[0]->Cmd1Len = 11;
-				
 				// Send Set VFO in case last chan was memory
 							
 //				*(CmdPtr++) = 0xFE;

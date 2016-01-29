@@ -1656,11 +1656,15 @@ struct ALIAS * CheckForNTSAlias(struct MsgInfo * Msg, char * ATFirstElement)
 		if (ATFirstElement && ATFirstElement[0])
 		{
 			if (ptr)
+			{
 				if (memcmp(ATFirstElement, Call, MatchLen) == 0)
 					return(Alias[0]);
+			}
 			else
+			{
 				if (strcmp(ATFirstElement, Call) == 0)
 					return(Alias[0]);
+			}
 		}
 
 		Alias++;

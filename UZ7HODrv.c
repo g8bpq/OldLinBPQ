@@ -1776,6 +1776,13 @@ VOID ProcessAGWPacket(struct TNCINFO * TNC, UCHAR * Message)
 
 		if (Monframe.PORT == 0)		// Unused UZ7HO port?
 			return;
+
+		//	Get real port 
+
+		TNC = TNCInfo[Monframe.PORT];
+
+		if (TNC == 0)
+			return;
 		
 		Monframe.LENGTH = RXHeader->DataLength + 6;
 

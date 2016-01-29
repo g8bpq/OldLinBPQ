@@ -47,6 +47,8 @@ struct RIGINFO
 	UINT BPQPort;				// Port this radio is attached to. Bit Map, as may be more than one port controlling radio
 	int PortNum;				// Number of port that defined this rig
 	
+	int IC735;					// Old ICOM with shorter freq message
+
 	struct _EXTPORTDATA * PortRecord[32]; // BPQ32 port record(s) for this rig (null terminated list)
 
 	UCHAR RigAddr;

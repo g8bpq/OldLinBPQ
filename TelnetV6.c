@@ -2871,7 +2871,7 @@ int DataSocket_Read(struct TNCINFO * TNC, struct ConnectionInfo * sockptr, SOCKE
 	byte * BSptr;
 	byte * MsgPtr;
 	BOOL wait;
-	char logmsg[120];
+	char logmsg[1000];
 	struct UserRec * USER;
 	struct TCPINFO * TCP = TNC->TCPInfo;
 	int SendIndex = 0;
@@ -3176,9 +3176,16 @@ MsgLoop:
 
         if (LogEnabled)
 		{
-			char Addr[100];
+			char Addr[256];
 			
 			Tel_Format_Addr(sockptr, Addr);
+			
+			if (strlen(MsgPtr) > 64)
+			{
+				Debugprintf("Telnet Bad User Name %s", MsgPtr);
+				MsgPtr[64] = 0;
+			}
+
 			sprintf(logmsg,"%d %s User=%s\n", sockptr->Number, Addr, MsgPtr);
 			WriteLog (logmsg);
 		}
@@ -3235,9 +3242,17 @@ MsgLoop:
     
         if (LogEnabled)
 		{
-			char Addr[100];
+			char Addr[256];
 			
 			Tel_Format_Addr(sockptr, Addr);
+						
+			if (strlen(MsgPtr) > 64)
+			{
+				Debugprintf("Telnet Bad Password %s", MsgPtr);
+				MsgPtr[64] = 0;
+			}
+
+
 			sprintf(logmsg,"%d %s Password=%s\n", sockptr->Number, Addr, MsgPtr);
 			WriteLog (logmsg);
 		}
@@ -3313,7 +3328,7 @@ int DataSocket_ReadRelay(struct TNCINFO * TNC, struct ConnectionInfo * sockptr, 
 	char NLMsg[3]={13,10,0};
 	byte * LFPtr;
 	byte * MsgPtr;
-	char logmsg[120];
+	char logmsg[256];
 	char RelayMsg[] = "No CMS connection available - using local BPQMail\r";
 	struct TCPINFO * TCP = TNC->TCPInfo;
 
@@ -3837,8 +3852,15 @@ MsgLoop:
         
         if (LogEnabled)
 		{
-			char Addr[100];		
+			char Addr[256];		
 			Tel_Format_Addr(sockptr, Addr);
+						
+			if (strlen(MsgPtr) > 64)
+			{
+				Debugprintf("Telnet Bad User Name %s", MsgPtr);
+				MsgPtr[64] = 0;
+			}
+
 			sprintf(logmsg,"%d %s User=%s\n", sockptr->Number, Addr, MsgPtr);
 			WriteLog (logmsg);
 		}
@@ -3899,8 +3921,15 @@ MsgLoop:
             
         if (LogEnabled)
 		{
-			char Addr[100];
+			char Addr[256];
 			Tel_Format_Addr(sockptr, Addr);
+						
+			if (strlen(MsgPtr) > 64)
+			{
+				Debugprintf("Telnet Bad Password %s", MsgPtr);
+				MsgPtr[64] = 0;
+			}
+
 			sprintf(logmsg,"%d %s Password=%s\n", sockptr->Number, Addr, MsgPtr);
 			WriteLog (logmsg);
 		}

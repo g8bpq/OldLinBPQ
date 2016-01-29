@@ -1257,6 +1257,7 @@ extern BOOL LogTCP;
 extern BOOL ForwardToMe;
 
 extern BOOL AllowAnon;
+extern BOOL UserCantKillT;
 extern BOOL DontNeedHomeBBS;
 
 extern int LatestMsg;

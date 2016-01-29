@@ -155,6 +155,7 @@ extern BOOL MonTCP;
 
 BOOL SendNewUserMessage = TRUE;
 BOOL AllowAnon = FALSE;
+BOOL UserCantKillT = FALSE;
 
 #define BPQHOSTSTREAMS	64
 
@@ -2710,7 +2711,8 @@ int KillMessagesFrom(ConnectionInfo * conn, struct UserInfo * user, char * Call)
 
 BOOL OkToKillMessage(BOOL SYSOP, char * Call, struct MsgInfo * Msg)
 {	
-	if (SYSOP || Msg->type == 'T') return TRUE;
+	if (SYSOP || (Msg->type == 'T' && UserCantKillT == FALSE))
+		return TRUE;
 	
 	if (Msg->type == 'P')
 		if ((_stricmp(Msg->to, Call) == 0) || (_stricmp(Msg->from, Call) == 0))
@@ -7633,6 +7635,7 @@ VOID SaveConfig(char * ConfigName)
 	SaveIntValue(group, "DontHoldNewUsers", DontHoldNewUsers);
 	SaveIntValue(group, "AllowAnon", AllowAnon);
 	SaveIntValue(group, "DontNeedHomeBBS", DontNeedHomeBBS);
+	SaveIntValue(group, "UserCantKillT", UserCantKillT);
 
 	SaveIntValue(group, "ForwardToMe", ForwardToMe);
 	SaveIntValue(group, "SMTPPort", SMTPInPort);
@@ -7952,6 +7955,8 @@ BOOL GetConfig(char * ConfigName)
 	DontHoldNewUsers =  GetIntValue(group, "DontHoldNewUsers");
 	ForwardToMe =  GetIntValue(group, "ForwardToMe");
 	AllowAnon =  GetIntValue(group, "AllowAnon");
+	UserCantKillT = GetIntValue(group, "UserCantKillT");
+
 	DontNeedHomeBBS =  GetIntValue(group, "DontNeedHomeBBS");
 	MaxTXSize =  GetIntValue(group, "MaxTXSize");
 	MaxRXSize =  GetIntValue(group, "MaxRXSize");
@@ -10392,3 +10397,45 @@ CreateMessageWithAttachments()
 }
 
 */
+VOID CreateUserReport()
+{
+	struct UserInfo * User;
+	int i;
+	char Line[200];
+	int len;
+	char File[MAX_PATH];
+	FILE * hFile;
+
+	sprintf(File, "%s/UserList.csv", BaseDir);
+	
+	hFile = fopen(File, "wb");
+
+	if (hFile == NULL)
+	{
+		Debugprintf("Failed to create UserList.csv");
+		return;
+	}
+	
+	for (i=1; i <= NumberofUsers; i++)
+	{
+		User = UserRecPtr[i];
+
+		len = sprintf(Line, "%s,%d,%s,%x,%s,\"%s\",%x,%s,%s,%s\r\n",
+			User->Call,
+			User->lastmsg,
+			FormatDateAndTime(User->TimeLastConnected, FALSE),
+			User->flags,
+			User->Name,
+			User->Address,
+			User->RMSSSIDBits,
+			User->HomeBBS,
+			User->QRA,
+			User->ZIP
+//	struct MsgStats Total;
+//	struct MsgStats	Last;
+			);
+			fwrite(Line, 1, len, hFile);
+	}
+
+	fclose(hFile);
+}

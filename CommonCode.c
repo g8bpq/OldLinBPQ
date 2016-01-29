@@ -197,6 +197,11 @@ BOK1:
 
 			return 0;
 		}
+		if (pointer == (UINT *)pointer[0])
+		{
+			Debugprintf("Buffer chained to itself");
+			return 0;
+		}
 		pointer = (UINT *)pointer[0];
 	}
 
