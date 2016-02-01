@@ -122,6 +122,8 @@ int NODE = 1;					// INCLUDE SWITCH SUPPORT
 
 int FULL_CTEXT = 1;				// CTEXT ON ALL CONNECTS IF NZ
 
+BOOL LogL4Connects = FALSE;
+
 //TNCTABLE	DD	0
 //NUMBEROFSTREAMS	DD	0
 
@@ -694,6 +696,8 @@ BOOL Start()
 	MAXNEIGHBOURS = cfg->C_MAXNEIGHBOURS;
 	MAXCIRCUITS = cfg->C_MAXCIRCUITS;
 	HIDENODES = cfg->C_HIDENODES;
+
+	LogL4Connects = cfg->LogL4Connects;
 
 	// Get pointers to PASSWORD and APPL1 commands
 

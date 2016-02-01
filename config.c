@@ -301,7 +301,8 @@ static char *keywords[] =
 "APPL5ALIAS", "APPL6ALIAS", "APPL7ALIAS", "APPL8ALIAS",
 "APPL1QUAL", "APPL2QUAL", "APPL3QUAL", "APPL4QUAL",
 "APPL5QUAL", "APPL6QUAL", "APPL7QUAL", "APPL8QUAL",
-"BTEXT:", "NETROMCALL", "C_IS_CHAT", "MAXRTT", "MAXHOPS"		// IPGATEWAY= no longer allowed
+"BTEXT:", "NETROMCALL", "C_IS_CHAT", "MAXRTT", "MAXHOPS",		// IPGATEWAY= no longer allowed
+"LogL4Connects"
 };           /* parameter keywords */
 
 static int offset[] =
@@ -320,8 +321,8 @@ ApplOffset, 66, 2048, 71, 70, 67,
 120,130,140,150,
 160,162,164,166,
 168,170,172,174,
-121, 256, 111, 113, 114						// BTEXT was UNPROTO+1
-};		/* offset for corresponding data in config file */
+121, 256, 111, 113, 114,						// BTEXT was UNPROTO+1
+116};		/* offset for corresponding data in config file */
 
 static int routine[] = 
 {
@@ -339,8 +340,8 @@ static int routine[] =
 13, 13 ,13, 13,
 14, 14, 14, 14,
 14, 14 ,14, 14,
-15, 0, 2, 9, 9
-} ;			// Routine to process param
+15, 0, 2, 9, 9,
+2} ;			// Routine to process param
 
 int PARAMLIM = sizeof(routine)/sizeof(int);
 //int NUMBEROFKEYWORDS = sizeof(routine)/sizeof(int);
@@ -604,6 +605,7 @@ BOOL ProcessConfig()
 
 	paramok[72]=1;			// MAXRTT optional
 	paramok[73]=1;			// MAXHOPS optional
+	paramok[74]=1;			// LogL4Connects optional
 
 	for (i=0; i < PARAMLIM; i++)
 	{
