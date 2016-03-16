@@ -2175,6 +2175,22 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 
 			SetWindowText(TNC->xIDC_TNCSTATE, TNC->WEB_TNCSTATE);
 			
+			// Check for ExcludeList
+
+			if (ExcludeList[0])
+			{
+				if (CheckExcludeList(SESS->L4USER) == FALSE)
+				{
+					char Status[32];
+
+					TidyClose(TNC, 0);
+					sprintf(Status, "%d SCANSTART 15", TNC->Port);
+					Rig_Command(-1, Status);
+					Debugprintf("ARDOP Call from %s rejected", Call);
+					return;
+				}
+			}
+
 			// See which application the connect is for
 
 			for (App = 0; App < 32; App++)

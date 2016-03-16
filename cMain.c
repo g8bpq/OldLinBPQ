@@ -151,6 +151,9 @@ UCHAR LINKEDFLAG = 0;
 
 UCHAR UNPROTOCALL[80] = "";
 
+UCHAR ExcludeList[71] = "";		// 10 ENTRIES, 7 BYTES EACH
+
+
 
 char * INFOMSG = NULL;
 int INFOLEN = 0;
@@ -759,7 +762,12 @@ BOOL Start()
 		ptr3 += ALIASLEN;
 	}
 
-//	SET UP PORT TABLE
+	// Set up Exclude List
+
+	memcpy(ExcludeList, cfg->C_EXCLUDE, 71);
+
+
+	//	SET UP PORT TABLE
 
 	ptr2 = ConfigBuffer + C_PORTS;
 	PortRec = (struct PORTCONFIG *)ptr2;
@@ -969,7 +977,7 @@ BOOL Start()
 
 			ptr3 ++;							// Terminating NULL
 
-			//	Round to word boundsaty (for ARM5 etc)
+			//	Round to word boundary (for ARM5 etc)
 
 			int3 = (int)ptr3;
 			int3 += 3;
@@ -2228,4 +2236,3 @@ VOID FindLostBuffers()
 		Buff += 100;			// was (BUFFLEN / 4);
 	}
 }
-

@@ -1015,6 +1015,38 @@ NextAPRS:
 		return 0;
 	}
 
+	if (_memicmp(rec, "EXCLUDE=", 8) == 0)
+	{
+		char * ptr2 = &rec[8];
+		UCHAR * ptr3 = xxcfg->C_EXCLUDE;
+
+		_strupr(ptr2);
+		while (*(ptr2) > 32)
+		{
+			ConvToAX25(ptr2, ptr3);
+			ptr3 += 7;
+
+			if (strchr(ptr2, ','))
+			{
+				ptr2 = strchr(ptr2, ',');
+				ptr2++;
+			}
+			else
+				break;
+
+			if (ptr3 > &xxcfg->C_EXCLUDE[63])
+			{
+				Consoleprintf("Too Many Excluded Calls");
+				heading = 1;
+				break;
+			}
+		}
+
+		return 0;
+	}
+
+
+
 	if (xindex(rec,"=") >= 0)
 	   sscanf(rec,"%[^=]=%s",key_word,value);
 	else

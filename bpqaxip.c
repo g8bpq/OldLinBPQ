@@ -2144,6 +2144,8 @@ static ProcessLine(char * buf, struct AXIPPORTINFO * PORT)
 		
 		if (p_call == NULL) return (FALSE);
 
+		_strupr(p_call);
+
 		if (_stricmp(p_call, "DUMMY") == 0)
 		{
 			Consoleprintf("MAP DUMMY is no longer needed - statement ignored");
@@ -2531,7 +2533,9 @@ BOOL CheckSourceisResolvable(struct AXIPPORTINFO * PORT, char * call, int Port, 
 					struct sockaddr_in * SA = rxaddr;
 					memcpy(&arp->destaddr.sin_addr.s_addr, &SA->sin_addr, 4);
 				}
-				arp->port = Port;
+				//	Dont think I should update port
+
+				//arp->port = Port;
 			}
 			return 1;		// Ok to process
 		}

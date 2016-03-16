@@ -206,6 +206,8 @@ VOID Rig_PTT(struct RIGINFO * RIG, BOOL PTTState)
 	{
 		UCHAR * Poll = PORT->TXBuffer;
 
+		RIG->PollCounter = 100;		// Don't read for 10 secs to avoid clash with PTT OFF
+
 		switch (PORT->PortType)
 		{
 		case ICOM:
@@ -452,6 +454,8 @@ portok:
 
 			if (RIG_DEBUG)
 				Debugprintf("BPQ32 SCANSTOP Port %d", Port);
+
+			RIG->PollCounter = 50;	// Dont read freq for 5 secs
 
 			return FALSE;
 		}
@@ -2178,8 +2182,12 @@ SetFinished:
 			}
 
 			else
+			{
 				if (!PORT->AutoPoll)
 					SendResponse(RIG->Session, "Frequency and Mode Set OK");
+
+				RIG->PollCounter = 50;	// Dont read freq for 5 secs
+			}
 		}
 
 		PORT->Timeout = 0;
@@ -2716,9 +2724,18 @@ VOID YaesuPoll(struct RIGPORTINFO * PORT)
 		return;
 	}
 
-	if (RIG->ScanStopped == 0)
+	if (RIG->RIGOK && (RIG->ScanStopped == 0) && RIG->NumberofBands)
 		return;						// no point in reading freq if we are about to change it
 		
+	if (RIG->PollCounter)
+	{
+		RIG->PollCounter--;
+		if (RIG->PollCounter)
+			return;
+	}
+
+	RIG->PollCounter = 10;			// Once Per Sec
+
 	// Read Frequency 
 
 	Poll[0] = 0;

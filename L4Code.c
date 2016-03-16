@@ -1209,7 +1209,7 @@ void WriteL4LogLine(UCHAR * mycall, UCHAR * call, UCHAR * node)
 	T = time(NULL);
 	tm = gmtime(&T);	
 
-	sprintf(FN,"%s\\L4Log_%02d%02d.txt", BPQDirectory, tm->tm_mon + 1, tm->tm_mday);
+	sprintf(FN,"%s/L4Log_%02d%02d.txt", BPQDirectory, tm->tm_mon + 1, tm->tm_mday);
 
 	L4LogHandle = fopen(FN, "ab");
 
@@ -1531,6 +1531,11 @@ TryAgain:
 		//	Node not it table and table full
 
 		//	Replace worst quality node with session counts of zero
+
+		//	But could have been excluded, so check
+
+		if (CheckExcludeList(L3MSG->L3SRCE) == 0)
+			return;
 
 		DEST = DESTS;
 

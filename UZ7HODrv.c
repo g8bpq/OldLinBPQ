@@ -839,23 +839,62 @@ static int ExtProc(int fn, int port,unsigned char * buff)
 
 static int KillTNC(struct TNCINFO * TNC)
 {
-#ifndef LINBPQ
-	HANDLE hProc;
-
 	if (TNC->PTTMode)
 		Rig_PTT(TNC->RIG, FALSE);			// Make sure PTT is down
 
-	if (TNC->WIMMORPID == 0) return 0;
-
-	hProc =  OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, TNC->WIMMORPID);
-
-	if (hProc)
+/*
+	if (TNC->ProgramPath && _memicmp(TNC->ProgramPath, "REMOTE:", 7) == 0)
 	{
-		TerminateProcess(hProc, 0);
-		CloseHandle(hProc);
+		// Try to Kill TNC on a remote host
+
+		SOCKET sock = socket(AF_INET,SOCK_DGRAM,0);
+		struct sockaddr_in destaddr;
+		char Msg[80];
+		int Len;
+
+		if (sock == INVALID_SOCKET)
+			return 0;
+
+		destaddr.sin_family = AF_INET;
+		destaddr.sin_addr.s_addr = inet_addr(TNC->WINMORHostName);
+		destaddr.sin_port = htons(8500);
+
+		if (destaddr.sin_addr.s_addr == INADDR_NONE)
+		{
+			//	Resolve name to address
+
+			struct hostent * HostEnt = gethostbyname (TNC->WINMORHostName);
+		 
+			if (!HostEnt)
+				return 0;			// Resolve failed
+
+			memcpy(&destaddr.sin_addr.s_addr,HostEnt->h_addr,4);
+		}
+		Len = sprintf(Msg, "KILL %d", TNC->WIMMORPID);
+		sendto(sock, Msg, Len, 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
+		Sleep(100);
+		closesocket(sock);
+
+		TNC->WIMMORPID = 0;			// So we don't try again
+		return 1;				// Cant tell if it worked, but assume ok
 	}
 
-	TNC->WIMMORPID = 0;			// So we don't try again
+*/
+#ifndef LINBPQ
+	{
+		HANDLE hProc;
+
+
+		hProc =  OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, TNC->WIMMORPID);
+
+		if (hProc)
+		{
+			TerminateProcess(hProc, 0);
+			CloseHandle(hProc);
+		}
+
+		TNC->WIMMORPID = 0;			// So we don't try again
+	}
 #endif
 	return 0;
 }
@@ -863,7 +902,84 @@ static int KillTNC(struct TNCINFO * TNC)
 
 static int RestartTNC(struct TNCINFO * TNC)
 {
-#ifndef LINBPQ
+	if (_memicmp(TNC->ProgramPath, "REMOTE:", 7) == 0)
+	{
+		int n;
+		
+		// Try to start TNC on a remote host
+
+		SOCKET sock = socket(AF_INET,SOCK_DGRAM,0);
+		struct sockaddr_in destaddr;
+
+		Debugprintf("trying to restart UZ7HO TNC %s", TNC->ProgramPath);
+
+		if (sock == INVALID_SOCKET)
+			return 0;
+
+		destaddr.sin_family = AF_INET;
+		destaddr.sin_addr.s_addr = inet_addr(TNC->WINMORHostName);
+		destaddr.sin_port = htons(8500);
+
+		if (destaddr.sin_addr.s_addr == INADDR_NONE)
+		{
+			//	Resolve name to address
+
+			struct hostent * HostEnt = gethostbyname (TNC->WINMORHostName);
+		 
+			if (!HostEnt)
+				return 0;			// Resolve failed
+
+			memcpy(&destaddr.sin_addr.s_addr,HostEnt->h_addr,4);
+		}
+
+		n = sendto(sock, TNC->ProgramPath, strlen(TNC->ProgramPath), 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
+	
+		Debugprintf("Restart UZ7HO TNC - sendto returned %d", n);
+
+		Sleep(100);
+		closesocket(sock);
+
+		return 1;				// Cant tell if it worked, but assume ok
+	}
+
+#ifndef WIN32
+	{
+		char * arg_list[] = {NULL, NULL};
+		pid_t child_pid;	
+
+		signal(SIGCHLD, SIG_IGN); // Silently (and portably) reap children. 
+
+		//	Fork and Exec UZ7HO TNC
+
+		printf("Trying to start %s\n", TNC->ProgramPath);
+
+		arg_list[0] = TNC->ProgramPath;
+	 
+    	/* Duplicate this process. */ 
+
+		child_pid = fork (); 
+
+		if (child_pid == -1) 
+ 		{    				
+			printf ("UZ7HO TNC Start fork() Failed\n"); 
+			return 0;
+		}
+
+		if (child_pid == 0) 
+ 		{    				
+			execvp (arg_list[0], arg_list); 
+        
+			/* The execvp  function returns only if an error occurs.  */ 
+
+			printf ("Failed to run UZ7HO TNC\n"); 
+			exit(0);			// Kill the new process
+		}
+		printf("Started UZ7HO TNC\n");
+		return TRUE;
+	}								 
+#else
+
+	{
 	STARTUPINFO  SInfo;			// pointer to STARTUPINFO 
     PROCESS_INFORMATION PInfo; 	// pointer to PROCESS_INFORMATION 
 	char HomeDir[MAX_PATH];
@@ -896,6 +1012,7 @@ static int RestartTNC(struct TNCINFO * TNC)
 			TNC->WIMMORPID = PInfo.dwProcessId;
 
 		return ret;
+	}
 	}
 #endif
 	return 0;
@@ -989,6 +1106,9 @@ UINT UZ7HOExtInit(EXTPORTDATA * PortEntry)
 		if (EnumWindows(EnumTNCWindowsProc, (LPARAM)TNC))
 			if (TNC->ProgramPath)
 				TNC->WeStartedTNC = RestartTNC(TNC);
+#else
+		if (TNC->ProgramPath)
+			TNC->WeStartedTNC = RestartTNC(TNC);
 #endif
 		ConnecttoUZ7HO(port);
 	}
@@ -1082,7 +1202,7 @@ static ProcessLine(char * buf, int Port)
 			if (_memicmp(ptr, "PATH", 4) == 0)
 			{
 				p_cmd = strtok(NULL, "\n\r");
-				if (p_cmd) TNC->ProgramPath = _strdup(_strupr(p_cmd));
+				if (p_cmd) TNC->ProgramPath = _strdup(p_cmd);
 			}
 		}
 

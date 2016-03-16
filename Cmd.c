@@ -149,6 +149,7 @@ VOID SHOWNAT(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * 
 VOID PING(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD);
 VOID SHOWIPROUTE(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD);
 VOID FLMSG(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * UserCMD);
+void ListExcludedCalls(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD);
 
 VOID SENDNODES(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD)
 {
@@ -1721,6 +1722,56 @@ VOID UNPROTOCMD(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX
 	return;
 }
 
+VOID CALCMD(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD)
+{
+	// PROCESS CAL COMMAND
+
+	int Port = 0, index = 0, Count = 0;
+	char * ptr, *Context;
+	struct PORTCONTROL * PORT = NULL;
+
+	ptr = strtok_s(CmdTail, " ", &Context);
+
+	if (ptr)
+		Port = atoi(ptr);
+
+	if (Port == 0 && NUMBEROFPORTS == 1)
+		Port = 1;
+	else
+		ptr = strtok_s(NULL, " ", &Context);		// Get Unproto String
+
+	if (Port)
+		PORT = GetPortTableEntryFromPortNum(Port);
+
+	if (PORT == NULL)
+	{
+		Bufferptr += sprintf(Bufferptr, "Invalid Port\r");
+		SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
+		return;
+	}
+
+	if (PORT->PROTOCOL == 10 && PORT->UICAPABLE == 0)
+	{
+		Bufferptr += sprintf(Bufferptr, "Sorry, port is not an ax.25 port\r");
+		SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
+		return;
+	}
+
+	if (ptr == NULL)
+	{
+		Bufferptr += sprintf(Bufferptr, "Count Missing\r");
+		SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
+		return;
+	}
+
+	Count = atoi(ptr);
+
+	ptr = strtok_s(NULL, " ", &Context);		// Get Unproto String
+
+	Bufferptr += sprintf(Bufferptr, "Ok\r");
+	SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
+	return;
+}
 
 
 
@@ -1885,23 +1936,15 @@ VOID CMDC00(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * C
 	int TextCallLen;
 	char PortString[10];
 
-#ifdef BLACKBITS
+#ifdef EXCLUDEBITS
 
-	PUSH	ESI
-	LEA	ESI,L4USER[EBX]
-	CALL	CHECKBLACKLIST
-	POP	ESI
+	if (CheckExcludeList(Session->L4USER) == FALSE)
+	{
+		//	CONNECTS FROM THIS STATION ARE NOT ALLOWED
 
-	JNZ SHORT ALLOWED
-;
-;	CONNECTS FROM THIS STATION ARE NOT ALLOWED
-;
-	MOV	EDI,_REPLYBUFFER
-	CALL	RELBUFF
-	RET
-
-	PUBLIC	ALLOWED
-ALLOWED:
+		ReleaseBuffer((UINT *)REPLYBUFFER);
+		return;
+	}
 
 #endif
 
@@ -3726,9 +3769,9 @@ CMDX COMMANDS[] =
 	"STARTPORT   ",5,STARTPORT,0,
 	"FINDBUFFS   ",4,FINDBUFFS,0,
 
-#ifdef BLACKBITS
+#ifdef EXCLUDEBITS
 
-	"EXCLUDE     ",5,DISPBLACKLIST,0,
+	"EXCLUDE     ",4,ListExcludedCalls,0,
 
 #endif
 
@@ -4818,3 +4861,60 @@ VOID FLMSG(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * Us
 	CLOSECURRENTSESSION(Session);		// Kills any crosslink, plus local link
 	ReleaseBuffer((UINT *)REPLYBUFFER);
 }
+
+BOOL CheckExcludeList(UCHAR * Call)
+{
+	UCHAR * ptr1 = ExcludeList;
+
+	while (*ptr1)
+	{
+		if (memcmp(Call, ptr1, 6) == 0)
+			return FALSE;
+
+		ptr1 += 7;
+	}
+
+	return TRUE;
+}
+
+
+void ListExcludedCalls(TRANSPORTENTRY * Session, char * Bufferptr, char * CmdTail, CMDX * CMD)
+{
+
+	UCHAR * ptr = ExcludeList;
+	char Normcall[10] = "";
+	UCHAR AXCall[8] = "";
+
+	if (*CmdTail == ' ')
+		goto DISPLIST;
+
+	if (*CmdTail == 'Z')
+	{
+		// CLEAR LIST
+
+		memset(ExcludeList, 0, 70);
+		goto DISPLIST;
+	}
+
+	ConvToAX25(CmdTail, AXCall);
+
+	if (strlen(ExcludeList) < 70)
+		strcat(ExcludeList, AXCall);
+	
+DISPLIST:
+
+	while (*ptr)
+	{
+		Normcall[ConvFromAX25(ptr, Normcall)] = 0;
+		Bufferptr += sprintf(Bufferptr, "%s ", Normcall);
+		ptr += 7;
+	}
+
+	*(Bufferptr++) = '\r';
+	SendCommandReply(Session, REPLYBUFFER, Bufferptr - (char *)REPLYBUFFER);
+}
+
+
+
+
+

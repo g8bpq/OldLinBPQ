@@ -577,7 +577,54 @@ static void CheckReceivedData(struct PORTCONTROL * PORT, NPASYINFO npKISSINFO)
 		npKISSINFO->RXBCOUNT--;
 
 		c = *(npKISSINFO->RXBPTR++);
-	
+
+		if (PORT->PROTOCOL == 2)			// NETROM
+		{
+			if (npKISSINFO->NEEDCRC)		//Looking for CRC following ETX
+			{
+				npKISSINFO->MSGREADY = TRUE;
+				npKISSINFO->NEEDCRC = FALSE;
+				*(npKISSINFO->RXMPTR++) = c;	// Save CRC
+				break;
+			}
+
+			if (npKISSINFO->ESCFLAG)
+			{
+				//
+				//	DLE received - next should be DLE, STXor ETX, but we just pass on
+
+				npKISSINFO->ESCFLAG = FALSE;
+				*(npKISSINFO->RXMPTR++) = c;
+				continue;
+			}
+			else
+			{
+				// see if DLE, if so set ESCFLAG and ignore
+		
+				if (c == DLE)
+				{
+					npKISSINFO->ESCFLAG = TRUE;
+					continue;
+				}
+			}
+
+			switch (c)
+			{
+			case STX:
+			
+				npKISSINFO->RXMPTR = (UCHAR *)&npKISSINFO->RXMSG; // Reset buffer
+				break;
+
+			case ETX:
+				npKISSINFO->NEEDCRC = TRUE;
+				break;
+		
+			default:
+				*(npKISSINFO->RXMPTR++) = c;
+			}
+			continue;
+		}
+
 		if (npKISSINFO->ESCFLAG)
 		{
 			//
@@ -894,6 +941,47 @@ VOID SENDFRAME(struct KISSINFO * KISS, UINT * Buffer)
 
 	if (PORT->PROTOCOL == 2)			// NETROM
 	{
+		UCHAR TXCCC = 0;
+
+		ptr1 = &Message->DEST[0];
+		Len = Message->LENGTH - 7;
+		ENCBUFF[0] = STX;
+		ptr2 = &ENCBUFF[1];
+
+		while (Len--)
+		{
+			c = *(ptr1++);
+			TXCCC  += c;
+
+			switch (c)
+			{
+			case DLE:
+				(*ptr2++) = DLE;
+				(*ptr2++) = DLE;
+				break;
+
+			case STX:
+				(*ptr2++) = DLE;
+				(*ptr2++) = STX;
+				break;
+
+			case ETX:
+				(*ptr2++) = DLE;
+				(*ptr2++) = ETX;
+				break;
+
+			default:
+				(*ptr2++) = c;
+			}
+		}
+
+		(*ptr2++) = ETX;		// NETROM has CRC after ETX
+		(*ptr2++) = TXCCC;
+
+		ASYSEND(PORT, ENCBUFF, ptr2 - (char *)ENCBUFF);
+//		Debugprintf("NETROM TX Len %d CRC %d", ptr2 - (char *)ENCBUFF, TXCCC); 
+
+		C_Q_ADD(&TRACE_Q, Buffer);
 		return;
 	}
 	
@@ -1242,8 +1330,29 @@ SeeifMore:
 
 	if (PORT->PROTOCOL == 2)
 	{
+		// But need to checksum.
+
+		UCHAR c = 0;
+		int i;
+		UCHAR * ptr = &Port->RXMSG[0];
+
+		len--;			// Included CRC
+
+		for (i = 0; i < len; i++)
+			c += *(ptr++);
+
+		Debugprintf("NETROM RX Len %d CRC %d", len, *ptr);
+
+
+		if (c != *ptr)		// CRC OK?
+		{
+			PORT->RXERRORS++;
+			Debugprintf("NETROM Checksum Error %d %d", c, *ptr);
+			return 0;
+		}
+
 		Buffer = (UCHAR *)GetBuff();
-		
+
 		if (Buffer)
 		{
 			memcpy(&Buffer[7], &Port->RXMSG[0], len);

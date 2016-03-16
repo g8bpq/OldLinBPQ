@@ -69,6 +69,7 @@ char PopupText[260] = "";
 int PopupMode = 0;
 
 
+
 char RtKnown[MAX_PATH];
 char RtUsr[MAX_PATH] = "STUsers.txt";
 char RtUsrTemp[MAX_PATH] = "STUsers.tmp";
@@ -103,6 +104,8 @@ static int AutoColours[20] = {0, 4, 9, 11, 13, 16, 17, 42, 45, 50, 61, 64, 66, 7
 #define MaxSockets 64
 
 extern struct SEM OutputSEM;
+
+BOOL NeedINFO = TRUE;		// Send INFO Msg after 10 Secs
 
 
 //#undef free
@@ -2994,6 +2997,24 @@ VOID ChatTimer()
 	}
 
 	FreeSemaphore(&ChatSemaphore);
+
+	if (NeedINFO)
+	{
+		//	Send INFO to Chatmap
+
+		char Msg[500];
+		int len;
+
+		NeedINFO = FALSE;
+
+		if (Position[0]) 
+		{
+			len = sprintf(Msg, "INFO %s|%s|%d|\r", Position, PopupText, PopupMode);
+
+			if (len < 256)
+				Send_MON_Datagram(Msg, len);
+		}
+	}
 }
 
 VOID FreeChatMemory()
@@ -3626,6 +3647,7 @@ BOOL ChatInit()
 	char * Context;
 	int i;
 	ChatCIRCUIT * conn;
+
 
 	if (*ptr1 < 0x21)
 	{

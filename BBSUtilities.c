@@ -5605,7 +5605,7 @@ VOID SetupForwardingStruct(struct UserInfo * user)
 	{
 		//	Config from file
 
-		if (isdigit(user->Call[0]))
+		if (isdigit(user->Call[0]) || user->Call[0] == '_')
 			strcat(Key, "*");
 
 		strcat(Key, user->Call);
@@ -7752,7 +7752,7 @@ VOID SaveConfig(char * ConfigName)
 		if (memcmp(ForwardingInfo, &DummyForwardingInfo, sizeof(struct BBSForwardingInfo)) == 0)
 			continue;		// Ignore empty records;
 
-		if (isdigit(user->Call[0]))
+		if (isdigit(user->Call[0]) || user->Call[0] == '_')
 		{
 			char Key[20] = "*";
 			strcat (Key, user->Call); 

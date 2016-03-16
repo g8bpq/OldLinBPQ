@@ -63,7 +63,8 @@ struct CONFIGTABLE
 	UCHAR Spare4[4];			// 251 - 4
 	UCHAR C_VERSION;			// CONFIG PROG VERSION
 //	Reuse C_APPLICATIONS - no longer used
-	char C_NETROMCALL[10]; 
+	char C_NETROMCALL[10];
+	UCHAR C_EXCLUDE[71];
 };
 
 struct PORTCONFIG

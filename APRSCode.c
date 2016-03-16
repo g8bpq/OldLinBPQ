@@ -132,7 +132,7 @@ UCHAR AXCall[7] = "";
 
 char CallPadded[10] = "         ";
 
-int GPSPort = 0;
+char GPSPort[80] = "";
 int GPSSpeed = 0;
 char GPSRelay[80] = "";
 
@@ -705,7 +705,7 @@ Dll BOOL APIENTRY Init_APRS()
 		_beginthread(APRSISThread, 0, (VOID *) TRUE);
 	}
 
-	if (GPSPort)
+	if (GPSPort[0])
 		OpenGPSPort();
 
 	WritetoConsole("APRS Digi/Gateway Enabled\n");
@@ -848,7 +848,7 @@ Dll VOID APIENTRY Poll_APRS()
 #endif
 #endif
 
-	if (GPSPort)
+	if (GPSPort[0])
 		PollGPSIn();
 
 	if (APPLTX_Q)
@@ -1822,7 +1822,8 @@ static APRSProcessLine(char * buf)
 
 	if (_stricmp(ptr, "GPSPort") == 0)
 	{
-		GPSPort = atoi(p_value);
+		if (strcmp(p_value, "0") != 0)
+			strcpy(GPSPort, p_value);
 		return TRUE;
 	}
 
@@ -3082,7 +3083,13 @@ BOOL OpenGPSPort()
 
 	// open COMM device
 
-	portptr->hDevice = OpenCOMPort((VOID *)GPSPort, GPSSpeed, TRUE, TRUE, FALSE, 0);
+	if (strlen(GPSPort) < 4)
+	{
+		int port = atoi(GPSPort);
+		portptr->hDevice = OpenCOMPort((VOID *)port, GPSSpeed, TRUE, TRUE, FALSE, 0);
+	}
+	else
+		portptr->hDevice = OpenCOMPort((VOID *)GPSPort, GPSSpeed, TRUE, TRUE, FALSE, 0);
 				  
 	if (portptr->hDevice == 0)
 	{

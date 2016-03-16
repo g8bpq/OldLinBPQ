@@ -22,7 +22,8 @@ typedef struct tagASYINFO
 	UCHAR * RXBPTR;					// get pointer for RXBUFFER (put ptr is RXBCOUNT) 
 	UCHAR * RXMPTR;					// put pointer for RXMSG
 	BOOL	MSGREADY;				// Complete msg in RXMSG
-	BOOL	ESCFLAG;				// FESC received
+	BOOL	ESCFLAG;				// FESC/DLE received
+	BOOL	NEEDCRC;				// ETX received, waiting for CRC (NETROM)
  
 } ASYINFO, *NPASYINFO ;
 
