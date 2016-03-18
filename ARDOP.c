@@ -764,15 +764,18 @@ static int ExtProc(int fn, int port,unsigned char * buff)
 					ARDOPSendCommand(TNC, "SENDID", TRUE);
 				}
 			}
-			if (TNC->FECPending)	// Check if FEC Send needed
-			{
-				if (!TNC->Busy)
-				{
-					TNC->FECPending = 0;
-					ARDOPSendCommand(TNC,"FECSEND TRUE", TRUE);
-				}
-			}
 		}
+
+		//	FECPending can be set if not in FEC Mode (eg beacon)
+		
+		if (TNC->FECPending)	// Check if FEC Send needed
+		{
+			if (!TNC->Busy)
+			{
+				TNC->FECPending = 0;
+				ARDOPSendCommand(TNC,"FECSEND TRUE", TRUE);
+			}
+		}	
 
 		if (STREAM->NeedDisc)
 		{
@@ -1709,7 +1712,7 @@ VOID ARDOPThread(port)
    			i=sprintf(Msg, "Connect Failed for ARDOP socket - error code = %d\r\n", err);
 			WritetoConsole(Msg);
 			sprintf(TNC->WEB_COMMSSTATE, "Connection to TNC failed");
-			SetWindowText(TNC->xIDC_COMMSSTATE, TNC->WEB_COMMSSTATE);
+			MySetWindowText(TNC->xIDC_COMMSSTATE, TNC->WEB_COMMSSTATE);
 
 			TNC->Alerted = TRUE;
 		}
@@ -1721,7 +1724,9 @@ VOID ARDOPThread(port)
 	}
 
 #ifndef LINBPQ
+//	FreeSemaphore(&Semaphore);
 	EnumWindows(EnumARDOPWindowsProc, (LPARAM)TNC);
+//	GetSemaphore(&Semaphore, 52);
 #endif
 	Sleep(1000);
 
@@ -2170,6 +2175,22 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 
 			SetWindowText(TNC->xIDC_TNCSTATE, TNC->WEB_TNCSTATE);
 			
+			// Check for ExcludeList
+
+			if (ExcludeList[0])
+			{
+				if (CheckExcludeList(SESS->L4USER) == FALSE)
+				{
+					char Status[32];
+
+					TidyClose(TNC, 0);
+					sprintf(Status, "%d SCANSTART 15", TNC->Port);
+					Rig_Command(-1, Status);
+					Debugprintf("ARDOP Call from %s rejected", Call);
+					return;
+				}
+			}
+
 			// See which application the connect is for
 
 			for (App = 0; App < 32; App++)
@@ -2399,7 +2420,7 @@ VOID ARDOPProcessResponse(struct TNCINFO * TNC, UCHAR * Buffer, int MsgLen)
 
 		TNC->WinmorRestartCodecTimer = time(NULL);
 
-		SetWindowText(TNC->xIDC_PROTOSTATE, &Buffer[9]);
+		MySetWindowText(TNC->xIDC_PROTOSTATE, &Buffer[9]);
 		strcpy(TNC->WEB_PROTOSTATE,  &Buffer[9]);
 	
 		if (_memicmp(&Buffer[9], "DISCONNECTING", 13) == 0)	// So we can timout stuck discpending

@@ -198,7 +198,7 @@ VOID SENDUIMESSAGE(struct DATAMESSAGE * Msg)
 
 	while (PORT)
 	{
-		if (PORT->PROTOCOL >= 10 || PORT->PORTUNPROTO == 0)	// Pactor-style or no UNPROTO ADDR?
+		if ((PORT->PROTOCOL == 10 && PORT->UICAPABLE == 0) || PORT->PORTUNPROTO == 0)	// Pactor-style or no UNPROTO ADDR?
 		{
 			PORT = PORT->PORTPOINTER;
 			continue;
@@ -239,8 +239,14 @@ VOID SENDUIMESSAGE(struct DATAMESSAGE * Msg)
 			ptr2 += Msg->LENGTH;
 			Buffer->LENGTH = ptr2 - (char *)Buffer;			
 			Buffer->PORT = PORT->PORTNUMBER;
- 	
-			C_Q_ADD(&IDMSG_Q, Buffer);
+
+			if (PORT->PROTOCOL == 10)
+			{
+				EXTPORTDATA * EXTPORT = (EXTPORTDATA *) PORT;
+				C_Q_ADD(&EXTPORT->UI_Q,	Buffer);
+			}
+			else
+				C_Q_ADD(&IDMSG_Q, Buffer);
 		}
 		PORT = PORT->PORTPOINTER;
 	}

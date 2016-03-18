@@ -50,7 +50,7 @@ BOOL cATTACHTOBBS(TRANSPORTENTRY * Session, UINT Mask, int Paclen, int * AnySess
 VOID SETUPNEWCIRCUIT(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, 
 		 TRANSPORTENTRY * L4, char * BPQPARAMS, int ApplMask, int * BPQNODE);
 extern char * ALIASPTR;
-VOID SendConACK(struct _LINKTABLE * LINK, TRANSPORTENTRY * L4, L3MESSAGEBUFFER * L3MSG, BOOL BPQNODE, UINT Applmask);
+VOID SendConACK(struct _LINKTABLE * LINK, TRANSPORTENTRY * L4, L3MESSAGEBUFFER * L3MSG, BOOL BPQNODE, UINT Applmask, UCHAR * ApplCall);
 VOID L3SWAPADDRESSES(L3MESSAGEBUFFER * L3MSG);
 VOID L4TIMEOUT(TRANSPORTENTRY * L4);
 struct DEST_LIST * CHECKL3TABLES(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * Msg);
@@ -63,9 +63,11 @@ VOID SENDL4IACK(TRANSPORTENTRY * Session);
 VOID CHECKNEIGHBOUR(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * Msg);
 VOID ProcessINP3RIF(struct ROUTE * Route, UCHAR * ptr1, int msglen, int Port);
 VOID ProcessRTTMsg(struct ROUTE * Route, struct _L3MESSAGEBUFFER * Buff, int Len, int Port);
-VOID FRAMEFORUS(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, int ApplMask);
+VOID FRAMEFORUS(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, int ApplMask, UCHAR * ApplCall);
 
 extern UINT APPLMASK;
+
+extern BOOL LogL4Connects;
 
 // L4 Flags Values
 
@@ -119,8 +121,7 @@ VOID NETROMMSG(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG)
 
 		if (CompareCalls(L3MSG->L3DEST, MYCALL))
 		{
-FORUS:
-			FRAMEFORUS(LINK, L3MSG, APPLMASK);
+			FRAMEFORUS(LINK, L3MSG, APPLMASK, MYCALL);
 			return;
 		}
 	}
@@ -139,7 +140,10 @@ FORUS:
 		if (APPL->APPLCALL[0] > 0x40)		// Valid ax.25 addr
 		{
 			if (CompareCalls(L3MSG->L3DEST, APPL->APPLCALL))
-				goto FORUS;
+			{
+				FRAMEFORUS(LINK, L3MSG, APPLMASK, APPL->APPLCALL);
+				return;
+			}
 		}
 		APPLMASK <<= 1;
 		ALIASPTR += ALIASLEN;
@@ -1184,7 +1188,43 @@ VOID SENDL4DISC(TRANSPORTENTRY * Session)
 	C_Q_ADD(&DEST->DEST_Q, (UINT *)MSG);
 }
 
-VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT ApplMask)
+
+void WriteL4LogLine(UCHAR * mycall, UCHAR * call, UCHAR * node)
+{
+	UCHAR FN[MAX_PATH];
+	FILE * L4LogHandle;
+	time_t T;
+	struct tm * tm;
+
+	char Call1[12], Call2[12], Call3[12];
+
+	char LogMsg[256];	
+	int MsgLen;
+	
+	Call1[ConvFromAX25(mycall, Call1)] = 0;
+	Call2[ConvFromAX25(call, Call2)] = 0;
+	Call3[ConvFromAX25(node, Call3)] = 0;
+
+
+	T = time(NULL);
+	tm = gmtime(&T);	
+
+	sprintf(FN,"%s/L4Log_%02d%02d.txt", BPQDirectory, tm->tm_mon + 1, tm->tm_mday);
+
+	L4LogHandle = fopen(FN, "ab");
+
+	if (L4LogHandle == NULL)
+		return;
+
+	MsgLen = sprintf(LogMsg, "%02d:%02d:%02d Call to %s from %s at Node %s\r\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Call1, Call2, Call3);
+
+	fwrite(LogMsg , 1, MsgLen, L4LogHandle);
+
+	fclose(L4LogHandle);
+}
+
+
+VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT ApplMask, UCHAR * ApplCall)
 {
 	//	CONNECT REQUEST - SEE IF EXISTING SESSION
 	//	IF NOT, GET AND FORMAT SESSION TABLE ENTRY
@@ -1206,7 +1246,7 @@ VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT Appl
 	{
 		// SESSION EXISTS - ASSUME RETRY AND SEND ACK
 
-		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask);
+		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask, ApplCall);
 		return;
 	}
 
@@ -1233,7 +1273,8 @@ VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT Appl
 
 	if (ApplMask == 0 || BPQPARAMS[2] == 'Z')		// Z is "Spy" Connect
 	{
-		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask);
+		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask, ApplCall);
+
 		return;
 	}
 
@@ -1246,7 +1287,7 @@ VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT Appl
 
 		//	ACCEPT THE CONNECT, THEN INVOKE THE ALIAS
 
-		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask);
+		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask, ApplCall);
 
 		Msg = GetBuff();
 
@@ -1266,7 +1307,7 @@ VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT Appl
 
 	if (cATTACHTOBBS(L4, ApplMask, PACLEN, &CONERROR))
 	{
-		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask);
+		SendConACK(LINK, L4, L3MSG, BPQNODE, ApplMask, ApplCall);
 		return;
 	}
 	
@@ -1277,7 +1318,7 @@ VOID CONNECTREQUEST(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, UINT Appl
 	return;
 }
 
-VOID SendConACK(struct _LINKTABLE * LINK, TRANSPORTENTRY * L4, L3MESSAGEBUFFER * L3MSG, BOOL BPQNODE, UINT Applmask)
+VOID SendConACK(struct _LINKTABLE * LINK, TRANSPORTENTRY * L4, L3MESSAGEBUFFER * L3MSG, BOOL BPQNODE, UINT Applmask, UCHAR * ApplCall)
 {
 	//	SEND CONNECT ACK	
 	
@@ -1287,6 +1328,9 @@ VOID SendConACK(struct _LINKTABLE * LINK, TRANSPORTENTRY * L4, L3MESSAGEBUFFER *
 	L3MSG->L4DATA[0] = L4->L4WINDOW;			//WINDOW
 
 	L3MSG->L4FLAGS = L4CACK;
+
+	if (LogL4Connects)
+		WriteL4LogLine(ApplCall, L4->L4USER, L3MSG->L3SRCE);
 
 	if (CTEXTLEN && (Applmask == 0) && FULL_CTEXT)	// Any connect, or call to alias
 	{
@@ -1488,6 +1532,11 @@ TryAgain:
 
 		//	Replace worst quality node with session counts of zero
 
+		//	But could have been excluded, so check
+
+		if (CheckExcludeList(L3MSG->L3SRCE) == 0)
+			return;
+
 		DEST = DESTS;
 
 		while (n--)
@@ -1551,7 +1600,7 @@ int CHECKIFBUSYL4(TRANSPORTENTRY * L4)
 		return L4BUSY;
 }
 
-VOID FRAMEFORUS(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, int ApplMask)
+VOID FRAMEFORUS(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, int ApplMask, UCHAR * ApplCall)
 {
 	//	INTERNODE LINK
 
@@ -1598,7 +1647,7 @@ VOID FRAMEFORUS(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * L3MSG, int ApplMask)
 
 	case L4CREQ:
 
-		CONNECTREQUEST(LINK, L3MSG, ApplMask);
+		CONNECTREQUEST(LINK, L3MSG, ApplMask, ApplCall);
 		return;
 	}
 		

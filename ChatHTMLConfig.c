@@ -185,7 +185,7 @@ void ProcessChatHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 			if (ChatConfigTemplate)
 				free(ChatConfigTemplate);
 
-			ChatConfigTemplate = GetTemplateFromFile(1, "ChatConfig.txt");
+			ChatConfigTemplate = GetTemplateFromFile(2, "ChatConfig.txt");
 			
 			NodeURL[strlen(NodeURL)] = ' ';				// Undo strtok
 			SaveChatInfo(Session, input, Reply, RLen, Key);
@@ -224,7 +224,7 @@ void ProcessChatHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 		if (ChatConfigTemplate)
 			free(ChatConfigTemplate);
 
-		ChatConfigTemplate = GetTemplateFromFile(1, "ChatConfig.txt");
+		ChatConfigTemplate = GetTemplateFromFile(2, "ChatConfig.txt");
 
 		SendChatConfigPage(Reply, RLen, Key);
 		return;

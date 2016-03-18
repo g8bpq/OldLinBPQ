@@ -841,6 +841,13 @@ VOID UnpackFBBBinary(CIRCUIT * conn)
 
 loop:
 
+	if (conn->CloseAfterFlush)	// Failed (or complete), so discard rest of input
+	{
+		conn->InputLen = 0;
+		return;
+	}
+
+
 	ptr = conn->InputBuffer;
 
 	if (conn->InputLen < 2)
@@ -1079,14 +1086,28 @@ loop:
 
 		BBSputs(conn, "*** Protocol Error - Invalid Binary Message Format (Invalid Block Type)\r");
 		Flush(conn);
-		conn->CloseAfterFlush = 20;			// 2 Secs
 
-		//	Don't allow restart, as saved data is probably duff
+		if (conn->CloseAfterFlush == 0)
+		{
+			// Dont do it more than once
 
-		//	Actually all but the last block is probably OK, but maybe
-		//  not worth the risk of restarting
+			conn->CloseAfterFlush = 20;			// 2 Secs
 
-		conn->DontSaveRestartData = TRUE;
+			//	Don't allow restart, as saved data is probably duff
+
+			//	Actually all but the last block is probably OK, but maybe
+			//  not worth the risk of restarting
+
+			// Actually I think it is
+
+			if (conn->TempMsg->length > 256)
+			{
+				conn->TempMsg->length -= 256;
+				conn->DontSaveRestartData = FALSE;
+			}	
+			else
+				conn->DontSaveRestartData = TRUE;
+		}
 		return;
 	}
 }

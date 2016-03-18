@@ -442,7 +442,7 @@ static int ExtProc(int fn, int port,unsigned char * buff)
 
 								if (PORT->AutoAddARP)
 
-									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr.sin_addr.s_addr, 7, 0, inet_ntoa(RXaddr.rxaddr.sin_addr), 0, TRUE, TRUE, 0, 0, FALSE);
+									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr.sin_addr.s_addr, 7, 0, inet_ntoa(RXaddr.rxaddr.sin_addr), 0, PORT->AutoAddBC, TRUE, 0, 0, FALSE);
 
 								else
 								{
@@ -541,10 +541,10 @@ static int ExtProc(int fn, int port,unsigned char * buff)
 								{
 									char Addr[80];
 									Format_Addr((UCHAR *)&RXaddr.rxaddr6.sin6_addr, Addr, TRUE);
-									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr6.sin6_addr, 7, htons(RXaddr.rxaddr6.sin6_port), Addr, 0, TRUE, TRUE, 0, PORT->udpport[i], TRUE);		
+									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr6.sin6_addr, 7, htons(RXaddr.rxaddr6.sin6_port), Addr, 0, PORT->AutoAddBC, TRUE, 0, PORT->udpport[i], TRUE);		
 								}
 								else
-									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr.sin_addr.s_addr, 7, htons(RXaddr.rxaddr.sin_port), inet_ntoa(RXaddr.rxaddr.sin_addr), 0, TRUE, TRUE, 0, PORT->udpport[i], FALSE);		
+									return add_arp_entry(PORT, call, (UCHAR *)&RXaddr.rxaddr.sin_addr.s_addr, 7, htons(RXaddr.rxaddr.sin_port), inet_ntoa(RXaddr.rxaddr.sin_addr), 0, PORT->AutoAddBC, TRUE, 0, PORT->udpport[i], FALSE);		
 							else
 							{
 								char From[10];
@@ -740,7 +740,8 @@ VOID SendFrame(struct AXIPPORTINFO * PORT, struct arp_table_entry * arp_table, U
 		if (arp_table->IPv6)
 			sent = sendto(txsock, buff, txlen, 0, (struct sockaddr *)&arp_table->destaddr6, sizeof(arp_table->destaddr6));
 		else
-			sent = sendto(txsock, buff, txlen, 0, (struct sockaddr *)&arp_table->destaddr, sizeof(arp_table->destaddr));
+			if (arp_table->destaddr.sin_addr.s_addr)
+				sent = sendto(txsock, buff, txlen, 0, (struct sockaddr *)&arp_table->destaddr, sizeof(arp_table->destaddr));
 	
 //		if (sent != txlen)
 //			perror("Sendto");
@@ -2015,6 +2016,7 @@ broadcast QST-0 NODES-0
 		PORT->arp_table_len = 0;
 		memset(PORT->arp_table, 0, sizeof(struct arp_table_entry) *  MAX_ENTRIES);
 		PORT->AutoAddARP = FALSE;
+		PORT->AutoAddBC = FALSE;
 	}
 	else
 	{
@@ -2125,15 +2127,24 @@ static ProcessLine(char * buf, struct AXIPPORTINFO * PORT)
 	if(_stricmp(ptr,"AUTOADDMAP") == 0)
 	{
 		PORT->AutoAddARP = TRUE;
+		PORT->AutoAddBC = TRUE;
 		return (TRUE);
 	}
 	
+	if(_stricmp(ptr,"AUTOADDQUIET") == 0)
+	{
+		PORT->AutoAddARP = TRUE;
+		PORT->AutoAddBC = FALSE;
+		return (TRUE);
+	}
 
 	if(_stricmp(ptr,"MAP") == 0)
 	{
 		p_call = strtok(NULL, " \t\n\r");
 		
 		if (p_call == NULL) return (FALSE);
+
+		_strupr(p_call);
 
 		if (_stricmp(p_call, "DUMMY") == 0)
 		{
@@ -2507,7 +2518,10 @@ BOOL CheckSourceisResolvable(struct AXIPPORTINFO * PORT, char * call, int Port, 
 		{
 			// Call is present - if AutoAdded, refresh IP address and Port
 
-			if (arp->AutoAdded)
+			// Why not refreesh resolved addresses - if dynamic addr has changed
+			// this will give quicker response
+			
+			//if (arp->AutoAdded)
 			{
 				if (arp->IPv6)
 				{
@@ -2519,7 +2533,9 @@ BOOL CheckSourceisResolvable(struct AXIPPORTINFO * PORT, char * call, int Port, 
 					struct sockaddr_in * SA = rxaddr;
 					memcpy(&arp->destaddr.sin_addr.s_addr, &SA->sin_addr, 4);
 				}
-				arp->port = Port;
+				//	Dont think I should update port
+
+				//arp->port = Port;
 			}
 			return 1;		// Ok to process
 		}

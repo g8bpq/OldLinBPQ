@@ -132,7 +132,7 @@ UCHAR AXCall[7] = "";
 
 char CallPadded[10] = "         ";
 
-int GPSPort = 0;
+char GPSPort[80] = "";
 int GPSSpeed = 0;
 char GPSRelay[80] = "";
 
@@ -211,6 +211,16 @@ char SYMBOL = '=';						// Unknown Locaton
 char SYMSET = '/';
 
 BOOL TraceDigi = FALSE;					// Add Trace to packets relayed on Digi Calls
+BOOL SATGate = FALSE;					// Delay Gating to IS directly heard packets
+
+typedef struct _ISDELAY
+{
+	struct _ISDELAY * Next;
+	char * ISMSG;
+	time_t SendTIme;
+} ISDELAY;
+
+ISDELAY * SatISQueue = NULL;
 
 int MaxTraceHops = 2;
 int MaxFloodHops = 2;
@@ -695,7 +705,7 @@ Dll BOOL APIENTRY Init_APRS()
 		_beginthread(APRSISThread, 0, (VOID *) TRUE);
 	}
 
-	if (GPSPort)
+	if (GPSPort[0])
 		OpenGPSPort();
 
 	WritetoConsole("APRS Digi/Gateway Enabled\n");
@@ -838,7 +848,7 @@ Dll VOID APIENTRY Poll_APRS()
 #endif
 #endif
 
-	if (GPSPort)
+	if (GPSPort[0])
 		PollGPSIn();
 
 	if (APPLTX_Q)
@@ -896,12 +906,6 @@ Dll VOID APIENTRY Poll_APRS()
 			ReleaseBuffer(monbuff);
 			continue;
 		}
-
-//		if (CompareCalls(Orig->ORIGIN, AXCall))	// Our Packet
-//		{
-//			ReleaseBuffer(monbuff);
-//			continue;
-//		}
 
 		if ((APRSPortMask & (1 << (Port - 1))) == 0)// Port in use for APRS?
 		{
@@ -998,12 +1002,14 @@ Dll VOID APIENTRY Poll_APRS()
 			}
 		}
 
-		if (CheckforDups(Orig->ORIGIN, AdjBuff->L2DATA, Orig->LENGTH - Digis * 7 - 23))
-		{	
-			ReleaseBuffer(monbuff);
-			continue;			
+		if (SATGate == 0)
+		{
+			if (CheckforDups(Orig->ORIGIN, AdjBuff->L2DATA, Orig->LENGTH - Digis * 7 - 23))
+			{	
+				ReleaseBuffer(monbuff);
+				continue;			
+			}
 		}
-
 		// Decode Frame to TNC2 Monitor Format
 
 		len = APRSDecodeFrame((char *)monchars,  buffer, stamp, APRSPortMask);
@@ -1120,6 +1126,22 @@ Dll VOID APIENTRY Poll_APRS()
 		{
 			len = sprintf(ISMsg, "%s>%s,qAR,%s:%s", ptr1, ptr4, APRSCall, Payload);
 
+			if (SATGate && (DigisUsed == 0))
+			{
+				// If in Satgate mode delay directly heard to IGate
+
+				ISDELAY * SatISEntry = malloc(sizeof(ISDELAY));
+				SatISEntry->Next =	NULL;
+				SatISEntry->ISMSG = _strdup(ISMsg);
+				SatISEntry->SendTIme = time(NULL) + 10;	// Delay 10 seconds
+
+				if (SatISQueue)
+					SatISEntry->Next = SatISQueue;		// Chain
+
+				SatISQueue = SatISEntry;
+				goto NoIS;
+			}
+
 			ISSend(sock, ISMsg, len, 0);
 	
 			ptr1 = strchr(ISMsg, 13);
@@ -1128,7 +1150,18 @@ Dll VOID APIENTRY Poll_APRS()
 		}	
 	
 	NoIS:
-	
+
+		//	We skipped DUP check for SATGate Mode, so apply it here
+
+		if (SATGate)
+		{
+			if (CheckforDups(Orig->ORIGIN, AdjBuff->L2DATA, Orig->LENGTH - Digis * 7 - 23))
+			{	
+				ReleaseBuffer(monbuff);
+				continue;			
+			}
+		}
+
 		// See if it is an APRS frame
 
 		// If MIC-E, we need to process, whatever the destination
@@ -1586,6 +1619,12 @@ static APRSProcessLine(char * buf)
 		return TRUE;
 	}
 
+	if (_stricmp(ptr, "SATGate") == 0)
+	{
+		SATGate = TRUE;
+		return TRUE;
+	}
+
 	p_value = strtok(NULL, " \t\n\r");
 
 	if (p_value == NULL)
@@ -1783,7 +1822,8 @@ static APRSProcessLine(char * buf)
 
 	if (_stricmp(ptr, "GPSPort") == 0)
 	{
-		GPSPort = atoi(p_value);
+		if (strcmp(p_value, "0") != 0)
+			strcpy(GPSPort, p_value);
 		return TRUE;
 	}
 
@@ -1930,7 +1970,6 @@ static APRSProcessLine(char * buf)
 		strcpy(RunProgram, p_value);
 		return TRUE;
 	}
-
 
 	//
 	//	Bad line
@@ -2234,6 +2273,37 @@ VOID DoSecTimer()
 			SendObject(Object);
 		}
 		Object = Object->Next;
+	}
+
+	//	Check SatGate Mode delay Q
+
+	if (SatISQueue)
+	{
+		time_t NOW = time(NULL);
+		ISDELAY * SatISEntry = SatISQueue;
+		ISDELAY * Prev = NULL;
+
+		while (SatISEntry)
+		{
+			if (SatISEntry->SendTIme < NOW)
+			{
+				// Send it
+
+				ISSend(sock, SatISEntry->ISMSG, strlen(SatISEntry->ISMSG), 0);
+				free(SatISEntry->ISMSG);
+
+				if (Prev)
+					Prev->Next = SatISEntry->Next;
+				else
+					SatISQueue = SatISEntry->Next;
+
+				free(SatISEntry);
+				return;				// unlinkely to get 2 in sam esecond and doesn;t matter if we delay a bit more
+			}
+
+			Prev = SatISEntry;
+			SatISEntry = SatISEntry->Next;
+		}
 	}
 
 	if (ISPort && APRSISOpen == 0 && IGateEnabled)
@@ -3013,7 +3083,13 @@ BOOL OpenGPSPort()
 
 	// open COMM device
 
-	portptr->hDevice = OpenCOMPort((VOID *)GPSPort, GPSSpeed, TRUE, TRUE, FALSE, 0);
+	if (strlen(GPSPort) < 4)
+	{
+		int port = atoi(GPSPort);
+		portptr->hDevice = OpenCOMPort((VOID *)port, GPSSpeed, TRUE, TRUE, FALSE, 0);
+	}
+	else
+		portptr->hDevice = OpenCOMPort((VOID *)GPSPort, GPSSpeed, TRUE, TRUE, FALSE, 0);
 				  
 	if (portptr->hDevice == 0)
 	{

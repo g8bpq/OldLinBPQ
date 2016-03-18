@@ -54,7 +54,8 @@ struct CONFIGTABLE
 	UCHAR C_MAXRTT;				// 113
 	UCHAR C_MAXHOPS;			// 114
 	UCHAR C_PM;					// 115 Poermapper Enabled
-	UCHAR Spare[2];				// 116 NOW SPARE
+	UCHAR LogL4Connects;		// 116
+	UCHAR Spare;				// 117 NOW SPARE
 	short C_BBSQUAL;			// 118
 	UCHAR C_WASUNPROTO;
 	UCHAR C_BTEXT[120];			// 121
@@ -62,7 +63,8 @@ struct CONFIGTABLE
 	UCHAR Spare4[4];			// 251 - 4
 	UCHAR C_VERSION;			// CONFIG PROG VERSION
 //	Reuse C_APPLICATIONS - no longer used
-	char C_NETROMCALL[10]; 
+	char C_NETROMCALL[10];
+	UCHAR C_EXCLUDE[71];
 };
 
 struct PORTCONFIG

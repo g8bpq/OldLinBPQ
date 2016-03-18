@@ -4,9 +4,13 @@
 
 #define DllImport
 
+#define EXCLUDEBITS
+
 #include "compatbits.h"
 
 #include "asmstrucs.h"
+
+BOOL CheckExcludeList(UCHAR * Call);
 
 Dll int ConvFromAX25(unsigned char * incall,unsigned char * outcall);
 Dll BOOL ConvToAX25(unsigned char * callsign, unsigned char * ax25call);
@@ -296,6 +300,7 @@ extern USHORT CWTABLE[];
 extern TRANSPORTENTRY * L4TABLE;
 extern UCHAR ROUTEQUAL;
 extern UINT BPQMsg;
+extern UCHAR ExcludeList[];
 
 
 extern APPLCALLS APPLCALLTABLE[];

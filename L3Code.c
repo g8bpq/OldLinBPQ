@@ -224,6 +224,9 @@ VOID PROCESSNODEMESSAGE(MESSAGE * Msg, struct PORTCONTROL * PORT)
 
 	if (CompareCalls(Msg->ORIGIN, NETROMCALL))
 		return;
+
+	if (CheckExcludeList(Msg->ORIGIN) == 0)
+		return;
 	
 	for (App = 0; App < NumberofAppls; App++)
 	{
@@ -368,6 +371,10 @@ VOID PROCESSNODEMESSAGE(MESSAGE * Msg, struct PORTCONTROL * PORT)
 			}
 			continue;
 		}
+
+		if (CheckExcludeList(ptr1) == 0)			// Excluded
+			continue;
+
 		for (n = 0; n < 32; n++)
 		{
 			if (CompareCalls(ptr1, APPLCALLTABLE[n].APPLCALL))
@@ -1317,9 +1324,9 @@ struct DEST_LIST * CHECKL3TABLES(struct _LINKTABLE * LINK, L3MESSAGEBUFFER * Msg
 
 	//	ADD DESTINATION VIA NEIGHBOUR, UNLESS ON BLACK LIST
 
-#ifdef BLACKBITS
+#ifdef EXCLUDEBITS
 
-	if (CHECKBLACKLIST(Msg->L3SRCE)
+	if (CheckExcludeList(Msg->L3SRCE) == 0)
 		return 0;
 	
 #endif

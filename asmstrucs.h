@@ -1217,6 +1217,7 @@ struct AXIPPORTINFO
 	BOOL MHAvailable;			// Enabled with config file directive
 
 	BOOL AutoAddARP;
+	BOOL AutoAddBC;				// Broadcast flag for autoaddmap
 
 	unsigned char  hostaddr[64];
 

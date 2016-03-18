@@ -122,6 +122,8 @@ int NODE = 1;					// INCLUDE SWITCH SUPPORT
 
 int FULL_CTEXT = 1;				// CTEXT ON ALL CONNECTS IF NZ
 
+BOOL LogL4Connects = FALSE;
+
 //TNCTABLE	DD	0
 //NUMBEROFSTREAMS	DD	0
 
@@ -148,6 +150,9 @@ int NODEORDER = 0;
 UCHAR LINKEDFLAG = 0;
 
 UCHAR UNPROTOCALL[80] = "";
+
+UCHAR ExcludeList[71] = "";		// 10 ENTRIES, 7 BYTES EACH
+
 
 
 char * INFOMSG = NULL;
@@ -695,6 +700,8 @@ BOOL Start()
 	MAXCIRCUITS = cfg->C_MAXCIRCUITS;
 	HIDENODES = cfg->C_HIDENODES;
 
+	LogL4Connects = cfg->LogL4Connects;
+
 	// Get pointers to PASSWORD and APPL1 commands
 
 //	int APPL1 = 0;
@@ -755,7 +762,12 @@ BOOL Start()
 		ptr3 += ALIASLEN;
 	}
 
-//	SET UP PORT TABLE
+	// Set up Exclude List
+
+	memcpy(ExcludeList, cfg->C_EXCLUDE, 71);
+
+
+	//	SET UP PORT TABLE
 
 	ptr2 = ConfigBuffer + C_PORTS;
 	PortRec = (struct PORTCONFIG *)ptr2;
@@ -965,7 +977,7 @@ BOOL Start()
 
 			ptr3 ++;							// Terminating NULL
 
-			//	Round to word boundsaty (for ARM5 etc)
+			//	Round to word boundary (for ARM5 etc)
 
 			int3 = (int)ptr3;
 			int3 += 3;
@@ -2224,4 +2236,3 @@ VOID FindLostBuffers()
 		Buff += 100;			// was (BUFFLEN / 4);
 	}
 }
-

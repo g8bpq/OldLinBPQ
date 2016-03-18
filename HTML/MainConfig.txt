@@ -1,4 +1,4 @@
-<!-- Version 3 28/9/2015 -->
+<!-- Version 4 28/9/2015 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
 <html><head><title>Main Configuration</title>
 
@@ -54,6 +54,7 @@ SYSOP Call<br>
   <input %sname="DontHold" type="checkbox"> Don't Hold Messages From New Users<br>
   <input %sname="DontNeedName" type="checkbox"> Don't Request Name<br>
    <input %sname="DontNeedHomeBBS" type="checkbox"> Don't Request Home BBS<br>
+   <input %sname="UserCantKillT" type="checkbox"> Allow users to kill T messages<br>
   <input %sname="FWDtoMe" type="checkbox"> Forward Messages to BBS Call<br><br>
 &nbsp;POP3 Port&nbsp;&nbsp; <input value="%d" size="3" name="POP3Port">
 SMTP Port <input value="%d" size="3" name="SMTPPort"> NTPPort <input value="%d" size="3" name="NNTPPort">&nbsp;<input %sname="EnRemote" type="checkbox"> Enable Remote Access<br>

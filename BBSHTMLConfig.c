@@ -1560,7 +1560,7 @@ void ProcessMailHTTPMessage(struct HTTPConnectionInfo * Session, char * Method, 
 		if (ConfigTemplate)
 			free(ConfigTemplate);
 
-		ConfigTemplate = GetTemplateFromFile(3, "MainConfig.txt");
+		ConfigTemplate = GetTemplateFromFile(4, "MainConfig.txt");
 
 		SendConfigPage(Reply, RLen, Key);
 		return;
@@ -2401,7 +2401,8 @@ VOID ProcessConfUpdate(struct HTTPConnectionInfo * Session, char * MsgPtr, char 
 		GetCheckBox(input, "DontHold=", &DontHoldNewUsers);
 		GetCheckBox(input, "DontNeedName=", &AllowAnon);
 		GetCheckBox(input, "DontNeedHomeBBS=", &DontNeedHomeBBS);
-
+		GetCheckBox(input, "UserCantKillT=", &UserCantKillT);
+		UserCantKillT = !UserCantKillT;	// Reverse Logic
 		GetCheckBox(input, "FWDtoMe=", &ForwardToMe);
 
 		GetParam(input, "POP3Port=", Temp);
@@ -3151,6 +3152,7 @@ VOID SendConfigPage(char * Reply, int * ReplyLen, char * Key)
 		(DontHoldNewUsers) ? CHKD  : UNC, 
 		(AllowAnon) ? CHKD  : UNC, 
 		(DontNeedHomeBBS) ? CHKD  : UNC, 
+		(UserCantKillT) ? UNC : CHKD,		// Reverse logic
 		(ForwardToMe) ? CHKD  : UNC,
 		POP3InPort, SMTPInPort, NNTPInPort,
 		(RemoteEmail) ? CHKD  : UNC,
